@@ -1,0 +1,196 @@
+класс  SplineTuple :
+    def  __init__ ( self , a , b , c , d , x ):
+        я . а  =  а
+        я . б  =  б
+        я . с  =  с
+        я . d  =  d
+        я . х  =  х
+
+
+# Построение сплайна
+# x - узлы сетки, должны быть упорядочены по возрастанию, кратные узлы запрещены
+# y - значения функции в узлах сетки
+# n - количество узлов сетки
+def  BuildSpline ( x , y , n ):
+    # Инициализация массива сплайнов
+    шлицы  = [ SplineTuple ( 0 , 0 , 0 , 0 , 0 ) для  _  в  интервале ( 0 , п )]
+    для  i  в  диапазоне ( 0 , n ):
+        шлицы [ i ]. х  =  х [ я ]
+        шлицы [ i ]. а  =  у [ я ]
+
+    шлицы [ 0 ]. c  =  шлицы [ n  -  1 ]. с  =  0,0
+
+    # Решение СЛАУ относительно коэффициентов сплайнов c [i] методом прогонки для трехдиагональных матриц
+    # Вычисление прогоночных коэффициентов - прямой ход метода прогонки
+    альфа  = [ 0,0  для  _  в  диапазоне ( 0 , n  -  1 )]
+    бета  = [ 0,0  для  _  в  диапазоне ( 0 , n  -  1 )]
+
+    для  i  в  диапазоне ( 1 , n  -  1 ):
+        hi  =  x [ i ] -  x [ i  -  1 ]
+        hi1  =  x [ i  +  1 ] -  x [ i ]
+        А  =  привет
+        С  =  2,0  * ( привет  +  привет1 )
+        B  =  hi1
+        F  =  6,0  * (( y [ i  +  1 ] -  y [ i ]) /  hi1  - ( y [ i ] -  y [ i  -  1 ]) /  привет )
+        z  = ( A  *  alpha [ i  -  1 ] +  C )
+        альфа [ i ] =  - B  /  z
+        бета [ i ] = ( F  -  A  *  beta [ i  -  1 ]) /  z
+
+    # Нахождение решения - обратный ход метода прогонки
+    для  i  в  диапазоне ( n  -  2 , 0 , - 1 ):
+        шлицы [ i ]. c  =  alpha [ i ] *  splines [ i  +  1 ]. c  +  beta [ i ]
+
+    # По известным коэффициентам c [i] находим значения b [i] и d [i]
+    для  i  в  диапазоне ( n  -  1 , 0 , - 1 ):
+        hi  =  x [ i ] -  x [ i  -  1 ]
+        шлицы [ i ]. d  = ( шлицы [ i ]. c  -  шлицы [ i  -  1 ]. c ) /  hi
+        шлицы [ i ]. b  =  hi  * ( 2.0  *  шлицы [ i ]. c  +  шлицы [ i  -  1 ]. c ) /  6.0  + ( y [ i ] -  y [ i  -  1 ]) /  hi
+    возвратные  шлицы
+
+
+# Вычисление значения интерполированной функции в произвольной точке
+def  Интерполировать ( сплайны , x ):
+    если  не  шлицы :
+        return  None   # Если сплайны ещё не построены - возвращаем NaN
+
+    n  =  len ( шлицы )
+    s  =  SplineTuple ( 0 , 0 , 0 , 0 , 0 )
+
+    если  x  <=  splines [ 0 ]. x :   # Если x меньше точки сетки x [0] - пользуемся первым эл-тов массива
+        s  =  шлицы [ 0 ]
+    elif  x  > =  сплайны [ n  -  1 ]. x :   # Если x больше точек сетки x [n - 1] - пользуемся последним эл-том массива
+        s  =  шлицы [ n  -  1 ]
+    else :   # Иначе x лежит между граничными точками сетки - производим бинарный поиск нужного эл-та массива
+        я  =  0
+        j  =  n  -  1
+        пока  я  +  1  <  j :
+            k  =  i  + ( j  -  i ) //  2
+            если  x  <=  splines [ k ]. х :
+                j  =  k
+            еще :
+                я  =  к
+        s  =  шлицы [ j ]
+
+    dx  =  x  -  s . Икс
+    # Вычисляем значение сплайна в заданной точке по схеме Горнера (в принципе, "умный" компилятор применил бы схему Горнера сам, но не все так умны, как кажутся)
+    вернуться  с . a  + ( s . b  + ( s . c  /  2.0  +  s . d  *  dx  /  6.0 ) *  dx ) *  dx ;
+
+
+сплайн  =  BuildSpline ([ 1 , 3 , 7 , 9 ], [ 5 , 6 , 7 , 8 ], 4 )
+печать ( Интерполировать ( сплайн , 5 ))
+
+импортировать  numpy  как  np
+
+import  bpy
+от  bpy . реквизиты  import  EnumProperty , FloatProperty , BoolProperty
+
+от  сверчок . node_tree  импорт  SverchCustomTreeNode
+от  сверчок . data_structure  импорт  updateNode , dataCorrect , repeat_last
+от  сверчок . утилит . geom  import  LinearSpline , CubicSpline
+
+
+класс  SvInterpolationNodeMK3 ( bpy . types . Node , SverchCustomTreeNode ):
+    '' 'Advanced Vect. Интерполяция '' '
+    bl_idname  =  'SvInterpolationNodeMK3'
+    bl_label  =  'Векторная интерполяция mk3'
+    bl_icon  =  'OUTLINER_OB_EMPTY'
+
+    t_in  =  FloatProperty ( name = "t" ,
+                         по умолчанию = 0,5 , мин = 0 , макс = 1 , точность = 5 ,
+                         update = updateNode )
+
+    h  =  FloatProperty (по умолчанию = 0,001 , точность = 5 , обновление = updateNode )
+
+    mode  = [( 'SPL' , 'Кубический' , "Кубический сплайн" , 0 ),
+             ( "LIN" , "Линейный" , "Линейная интерполяция" , 1 )]
+    mode  =  EnumProperty ( name = 'Режим' ,
+                        по умолчанию = "LIN" , items = mode ,
+                        update = updateNode )
+
+    knot_modes  = [( 'MANHATTAN' , 'Manhattan' , "Метрика расстояния на Манхэттене" , 0 ),
+                  ( 'РАССТОЯНИЕ' , 'Евклидан' , "метрика евдлидова расстояния" , 1 ),
+                  ( «ОЧКИ» , «Очки» , «На основе баллов» , 2 ),
+                  ( «ЧЕБЫШЕВ» , «Чебышев» , «Чебышевская дистанция» , 3 )]
+
+    knot_mode  =  EnumProperty ( name = 'Режим узла' ,
+                             по умолчанию = "РАССТОЯНИЕ" , items = knot_modes ,
+                             update = updateNode )
+
+    is_cyclic  =  BoolProperty ( name = "Циклично" , по умолчанию = False , update = updateNode )
+
+    def  sv_init ( сам , контекст ):
+        я . входы . new ( 'VerticesSocket' , 'Вершины' )
+
+    я . входы . new ( 'StringsSocket' , 'Интервал' ). prop_name  =  't_in'
+    я . выходы . new ( 'VerticesSocket' , 'Вершины' )
+    я . выходы . new ( 'VerticesSocket' , 'Tanget' )
+    я . выходы . new ( 'VerticesSocket' , 'Unit Tanget' )
+
+    def  draw_buttons ( self , context , layout ):
+        макет . prop ( self , 'mode' , expand = True )
+
+    макет . prop ( self , 'is_cyclic' )
+
+    def  draw_buttons_ext ( self , context , layout ):
+        макет . опора ( себя , 'ч' )
+
+    макет . prop ( self , 'knot_mode' )
+
+    def  процесс ( сам ):
+        если  "Unit Tanget"  не  в  себе . выходы :
+            возвращение
+
+    если  не  любой (( с . is_linked  для  S  в  себя . выходах )):
+        возвращение
+
+    calc_tanget  =  себя . выводит [ 'Tanget' ]. is_linked  или  self . выводит [ 'Unit Tanget' ]. связан
+
+    norm_tanget  =  себя . выводит [ 'Unit Tanget' ]. связан
+
+    h  =  себя . час
+
+    если  сам . входы [ 'Вершины' ]. is_linked :
+        вертс  =  сам . входы [ 'Вершины' ]. sv_get ()
+    Verts  =  dataCorrect ( Verts )
+    t_ins  =  себя . входы [ 'Интервал' ]. sv_get ()
+    verts_out  = []
+    tanget_out  = []
+    norm_tanget_out  = []
+    для  V , T_IN  в  молнии ( VERTS , repeat_last ( t_ins )):
+
+    t_corr  =  np . массив ( t_in ). клип ( 0 , 1 )
+
+    если  сам . mode  ==  'LIN' :
+        сплайн  =  LinearSpline ( v , metric = self . knot_mode , is_cyclic = self . is_cyclic )
+    out  =  сплайн . eval ( t_corr )
+    verts_out . добавить ( из . tolist ())
+
+    если  calc_tanget :
+        tanget_out . добавить ( сплайн . касательная ( t_corr ). tolist ())
+
+    еще :   # SPL
+        сплайн  =  CubicSpline ( v , metric = self . knot_mode , is_cyclic = self . is_cyclic )
+    out  =  сплайн . eval ( t_corr )
+    verts_out . добавить ( из . tolist ())
+    если  calc_tanget :
+        касательная  =  сплайн . касательная ( t_corr , h )
+    если  norm_tanget :
+        норма  =  нп . linalg . норма ( касательная , ось = 1 )
+    norm_tanget_out . append (( касательная  /  норма [:, np . newaxis ]). tolist ())
+    tanget_out . добавить ( касательная . толист ())
+
+    выходы  =  self . выходы
+    если  выводит [ 'Вершины' ]. is_linked :
+        выводит [ 'Вершины' ]. sv_set ( verts_out )
+    если  выводит [ 'Tanget' ]. is_linked :
+        выводит [ 'Tanget' ]. sv_set ( tanget_out )
+    если  выводит [ 'Unit Tanget' ]. is_linked :
+        выводит [ 'Unit Tanget' ]. sv_set ( norm_tanget_out )
+
+
+def  register ():
+    bpy . утилит . register_class ( SvInterpolationNodeMK3 )
+
+
+def  unregister ():
+    bpy . утилит . unregister_class ( SvInterpolationNodeMK3 )
